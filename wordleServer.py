@@ -20,38 +20,46 @@ serverSock.bind((HOST, PORT))
 serverSock.listen()
 print(f"Server listening on Host:{HOST}, Port:{PORT} ")
 
+try:
+    while True:
+        connection, clientAddress = serverSock.accept()
 
-connection, clientAddress = serverSock.accept()
+        print(f"Connected by: {clientAddress}")
+        try:
+            connection.sendall(b"HELLO! Welcome to WORDLE! Try to guess your word!\nX - Incorrect Letter\nY - Correct Letter, Wrong Space\nG - Correct Letter, Correct Space\nXXXXX")
+            word = wordleLibrary.select_word()
 
-print(f"Connected by: {clientAddress}")
+            while True:
+                guessData = connection.recv(1024)
+                
+                guess = guessData.decode()
 
-connection.sendall(b"HELLO! Welcome to WORDLE! Try to guess your word!\nXXXXX")
-word = wordleLibrary.select_word()
+                ##client has sent q to quit
+                if guess == "q":
+                    break
 
-while True:
-    guessData = connection.recv(1024)
-    
-    guess = guessData.decode()
+                ##client has won
+                if guess == "w":
+                    break
 
-    ##client has sent q to quit
-    if guess == "q":
-        break
+                ##client has failed, we will send the word and end
+                if guess == "f":
+                    connection.sendall(word.encode())
+                    break
 
-    ##client has won
-    if guess == "w":
-        break
+                ##call module function
+                result = wordleLibrary.process_guess(word, guess)
 
-    ##client has failed, we will send the word and end
-    if guess == "f":
-        connection.sendall(word.encode())
-        break
+                ##send our result to client
+                connection.sendall(result.encode())
+        except ConnectionError:     ##something happened with the client connection (unexpected)
+            print(f"Client {clientAddress} is gone buddy, sorry bout that G.")
+        finally:        ##the game is over, we want to end the connection (expected)
+            connection.close()
+            print(f"The connection with {clientAddress} is no more. (But like on good terms.)")
+except KeyboardInterrupt:   ##lets handle a keyboard server interrupt 
+    print("\nWe gonna shut dis bad boy down.")
 
-    ##call module function
-    result = wordleLibrary.process_guess(word, guess)
-
-    ##send our result to client
-    connection.sendall(result.encode())
-
-connection.close()
-serverSock.close()
-print("Server ended successfully.")
+finally:    ##now we are done forreal forreal
+    serverSock.close()
+    print("Server ended successfully.")
